@@ -15,7 +15,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
 from torch.nn import init
-import torch
 import matplotlib.pyplot as plt
 import torch
 from torchvision import datasets, transforms
@@ -31,8 +30,8 @@ model_urls = {
     'xception': 'https://www.dropbox.com/s/1hplpzet9d7dv29/xception-c0a72b38.pth.tar?dl=1'
 }
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-print("Using {} device".format(device))
+# device = "cuda" if torch.cuda.is_available() else "cpu"
+# print("Using {} device".format(device))
 
 
 class SeparableConv2d(nn.Module):
@@ -214,121 +213,135 @@ def imshow(img):
     plt.show()
 
 
-net = Xception()
-net = net.cuda()
+def train_model():
+    # Specify dataset directory
+    cwd = os.getcwd()
+    data_dir = cwd + '/data'
+    print(data_dir)
 
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    # Resize and normalize the images
+    transform = transforms.Compose([
+        transforms.Resize((150, 50)),
+        # transforms.Resize((180, 90)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        # transforms.Normalize(mean=(0.0, 0.0, 0.0), std=(1.0, 1.0, 1.0))
+        # transforms.Normalize((0.0, 0.0, 0.0), (1.0, 1.0, 1.0))
+        # transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    ])
 
-cwd = os.getcwd()
-data_dir = cwd + '/data'
+    dataset = datasets.ImageFolder(data_dir, transform=transform)
 
-print(data_dir)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=20, shuffle=True)
 
-transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Resize((150, 50)),
-    # transforms.Normalize(mean=(0.0, 0.0, 0.0), std=(1.0, 1.0, 1.0))
-    # transforms.Normalize((0.0, 0.0, 0.0), (1.0, 1.0, 1.0))
-    # transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-])
+    images, labels = next(iter(dataloader))
 
-dataset = datasets.ImageFolder(data_dir, transform=transform)
+    # Display image and label.
+    print(f"Feature batch shape: {images.size()}")
+    print(f"Labels batch shape: {labels.size()}")
+    img = images[0].squeeze()
+    # print(img)
+    img = np.array(img)
+    img = img.transpose(1, 2, 0)
+    label = labels[0]
+    plt.imshow(img, cmap="gray")
+    # plt.show()
+    # print(f"Label: {label}")
 
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
+    # Split the dataset into training and test set
+    train_set, test_set = torch.utils.data.random_split(dataset, [7658, 1914], generator=torch.Generator().manual_seed(0))
+    print(len(train_set))
+    print(len(test_set))
+    # print(train_set.indices)
+    # print(test_set.indices)
 
-images, labels = next(iter(dataloader))
+    # Set batch size
+    batch_size = 32
 
-# Display image and label.
+    # Dataloader for training set
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True)
 
-print(f"Feature batch shape: {images.size()}")
-print(f"Labels batch shape: {labels.size()}")
-img = images[0].squeeze()
-# print(img)
-img = np.array(img)
-img = img.transpose(1, 2, 0)
-label = labels[0]
-plt.imshow(img, cmap="gray")
-# plt.show()
-# print(f"Label: {label}")
+    # Dataloader for test set
+    test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, shuffle=True)
 
-train_set, test_set = torch.utils.data.random_split(dataset, [7658, 1914], generator=torch.Generator().manual_seed(0))
-print(len(train_set))
-print(len(test_set))
-# print(train_set.indices)
-# print(test_set.indices)
+    # Initialize model
+    net = Xception()
+    net = net.cuda()
+
+    # Specify loss and optimizer
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+
+    use_cuda = torch.cuda.is_available()
+
+    min_valid_loss = np.inf
+
+    num_of_epochs = 20
+
+    # Loop over the dataset for number of epochs
+    for epoch in range(num_of_epochs):
+        train_loss = 0.0
+        valid_loss = 0.0
+
+        print("------ Training ---------------")
+        for batch_idx, data in enumerate(train_loader, 0):
+
+            inputs, labels = data
+
+            # Transfer Data to GPU if available
+            if use_cuda:
+                  inputs, labels = inputs.cuda(), labels.cuda()
+
+            # Clear the gradients
+            optimizer.zero_grad()
+
+            # Forward Pass
+            outputs = net(inputs)
+
+            # Find the Loss
+            loss = criterion(outputs, labels)
+
+            # Calculate gradients
+            loss.backward()
+
+            # Update Weights
+            optimizer.step()
+
+            # Calculate Loss
+            train_loss = train_loss + ((1 / (batch_idx + 1)) * (loss.data - train_loss))
+            print('Epoch: %d - Batch: %5d' % (epoch + 1, batch_idx + 1))
+
+        print("---------------------Validation------------------------------")
+        for batch_idx, data in enumerate(test_loader, 0):
+
+            # Transfer Data to GPU if available
+            if use_cuda:
+                inputs, labels = inputs.cuda(), labels.cuda()
+
+            # forward + backward + optimize
+            outputs = net(inputs)
+            loss = criterion(outputs, labels)
+
+            # update average validation loss
+            valid_loss = valid_loss + ((1 / (batch_idx + 1)) * (loss.data - valid_loss))
+            print('Epoch: %d - Batch: %5d' % (epoch + 1, batch_idx + 1))
+
+        # calculate average losses
+        train_loss = train_loss / len(train_set)
+        valid_loss = valid_loss / len(test_set)
+
+        # print training/validation statistics
+        print('Epoch: {} \tTraining Loss: {:.6f} \tValidation Loss: {:.6f}'.format(epoch + 1, train_loss, valid_loss))
+
+        # Save best model based on min. validation loss
+        if min_valid_loss > valid_loss:
+            print(f'Validation Loss Decreased({min_valid_loss:.6f}--->{valid_loss:.6f}) \t Saving The Model')
+            min_valid_loss = valid_loss
+            # Saving State Dict
+            torch.save(net.state_dict(), os.getcwd() + '/saved_models/' + str(epoch + 1) + "_" +
+                       str(valid_loss.item()) + "_" + 'saved_model.pth')
 
 
-batch_size = 32
-# Dataloader for training set
-train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True)
-
-# Dataloader for test set
-test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, shuffle=True)
-
-use_cuda = torch.cuda.is_available()
-
-min_valid_loss = np.inf
-
-for epoch in range(20):  # loop over the dataset multiple times
-    train_loss = 0.0
-    valid_loss = 0.0
-
-    print("------ Training ---------------")
-    for batch_idx, data in enumerate(train_loader, 0):
-
-        inputs, labels = data
-
-        # Transfer Data to GPU if available
-        if use_cuda:
-              inputs, labels = inputs.cuda(), labels.cuda()
-
-        # Clear the gradients
-        optimizer.zero_grad()
-
-        # Forward Pass
-        outputs = net(inputs)
-
-        # Find the Loss
-        loss = criterion(outputs, labels)
-
-        # Calculate gradients
-        loss.backward()
-
-        # Update Weights
-        optimizer.step()
-
-        # Calculate Loss
-        train_loss = train_loss + ((1 / (batch_idx + 1)) * (loss.data - train_loss))
-        print('Epoch: %d - Batch: %5d' % (epoch + 1, batch_idx + 1))
-
-    print("---------------------Validation------------------------------")
-    for batch_idx, data in enumerate(test_loader, 0):
-
-        # Transfer Data to GPU if available
-        if use_cuda:
-            inputs, labels = inputs.cuda(), labels.cuda()
-
-        # forward + backward + optimize
-        outputs = net(inputs)
-        loss = criterion(outputs, labels)
-
-        # update average validation loss
-        valid_loss = valid_loss + ((1 / (batch_idx + 1)) * (loss.data - valid_loss))
-        print('Epoch: %d - Batch: %5d' % (epoch + 1, batch_idx + 1))
-
-    # calculate average losses
-    train_loss = train_loss / len(train_set)
-    valid_loss = valid_loss / len(test_set)
-
-    # print training/validation statistics
-    print('Epoch: {} \tTraining Loss: {:.6f} \tValidation Loss: {:.6f}'.format(epoch + 1, train_loss, valid_loss))
-
-    if min_valid_loss > valid_loss:
-        print(f'Validation Loss Decreased({min_valid_loss:.6f}--->{valid_loss:.6f}) \t Saving The Model')
-        min_valid_loss = valid_loss
-        # Saving State Dict
-        torch.save(net.state_dict(), os.getcwd() + '/saved_models/' + str(epoch + 1) + "_" +
-                   str(valid_loss.item()) + "_" + 'saved_model.pth')
-
+if __name__ == "__main__":
+    torch.cuda.empty_cache()
+    train_model()

@@ -2,105 +2,110 @@ import os
 from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
-import torchvision.transforms as transforms
-import cv2
+from torchvision import transforms
 
-cwd = os.getcwd()
-data_dir = cwd + '/data'
 
-print(data_dir)
+def mean_std_single_image():
+    # load the image
+    img_path = employee_data_dir + 'srlpackages_ch5_20210505150807_2021050518032812.jpg'
+    img = Image.open(img_path)
+    print(img.size)
 
-employee_data_dir = data_dir + '/Employee/'
-person_data_dir = data_dir + '/Person/'
+    # convert PIL image to numpy array
+    img_np = np.array(img)
 
-# load the image
-img_path = employee_data_dir + 'srlpackages_ch5_20210505150807_2021050518032812.jpg'
-img = Image.open(img_path)
-print(img.size)
+    '''
+    # plot the pixel values
+    # pixel values of RGB image range from 0-255
+    plt.hist(img_np.ravel(), bins=50, density=True)
+    plt.xlabel("pixel values")
+    plt.ylabel("relative frequency")
+    plt.title("distribution of pixels")
+    plt.show()
+    '''
 
-# convert PIL image to numpy array
-img_np = np.array(img)
+    # define custom transform function
+    transform = transforms.Compose([
+        transforms.ToTensor()
+    ])
 
-'''
-# plot the pixel values
-# pixel values of RGB image range from 0-255
-plt.hist(img_np.ravel(), bins=50, density=True)
-plt.xlabel("pixel values")
-plt.ylabel("relative frequency")
-plt.title("distribution of pixels")
-plt.show()
-'''
+    # transform the pIL image to tensor
+    # image
+    img_tr = transform(img)
 
-# define custom transform function
-transform = transforms.Compose([
-    transforms.ToTensor()
-])
+    # Convert tensor image to numpy array
+    img_np = np.array(img_tr)
 
-# transform the pIL image to tensor
-# image
-img_tr = transform(img)
+    '''
+    # plot the pixel values
+    # pixel values of tensor range from 0-1
+    plt.hist(img_np.ravel(), bins=50, density=True)
+    plt.xlabel("pixel values")
+    plt.ylabel("relative frequency")
+    plt.title("distribution of pixels")
+    plt.show()
+    '''
 
-# Convert tensor image to numpy array
-img_np = np.array(img_tr)
+    # calculate mean and std
+    mean, std = img_tr.mean([1, 2]), img_tr.std([1, 2])
 
-'''
-# plot the pixel values
-# pixel values of tensor range from 0-1
-plt.hist(img_np.ravel(), bins=50, density=True)
-plt.xlabel("pixel values")
-plt.ylabel("relative frequency")
-plt.title("distribution of pixels")
-plt.show()
-'''
+    # print mean and std
+    print("mean and std before normalize:")
+    print("Mean of the image:", mean)
+    print("Std of the image:", std)
 
-# calculate mean and std
-mean, std = img_tr.mean([1, 2]), img_tr.std([1, 2])
+    transform_norm = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean, std)
+    ])
 
-# print mean and std
-print("mean and std before normalize:")
-print("Mean of the image:", mean)
-print("Std of the image:", std)
+    # get normalized image
+    img_normalized = transform_norm(img)
 
-transform_norm = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize(mean, std)
-])
+    # convert normalized image to numpy
+    # array
+    img_np = np.array(img_normalized)
 
-# get normalized image
-img_normalized = transform_norm(img)
+    '''
+    # plot the pixel values
+    plt.hist(img_np.ravel(), bins=50, density=True)
+    plt.xlabel("pixel values")
+    plt.ylabel("relative frequency")
+    plt.title("distribution of pixels")
+    # plt.show()
+    '''
 
-# convert normalized image to numpy
-# array
-img_np = np.array(img_normalized)
+    # convert tis image to numpy array
+    img_normalized = np.array(img_normalized)
 
-'''
-# plot the pixel values
-plt.hist(img_np.ravel(), bins=50, density=True)
-plt.xlabel("pixel values")
-plt.ylabel("relative frequency")
-plt.title("distribution of pixels")
-# plt.show()
-'''
+    # transpose from shape of (3,,) to shape of (,,3)
+    img_normalized = img_normalized.transpose(1, 2, 0)
 
-# convert tis image to numpy array
-img_normalized = np.array(img_normalized)
+    # display the normalized image
+    plt.imshow(img_normalized)
+    plt.xticks([])
+    plt.yticks([])
+    plt.show()
 
-# transpose from shape of (3,,) to shape of (,,3)
-img_normalized = img_normalized.transpose(1, 2, 0)
+    # get normalized image
+    img_nor = transform_norm(img)
 
-# display the normalized image
-plt.imshow(img_normalized)
-plt.xticks([])
-plt.yticks([])
-plt.show()
+    # calculate mean and std
+    mean, std = img_nor.mean([1, 2]), img_nor.std([1, 2])
 
-# get normalized image
-img_nor = transform_norm(img)
+    # print mean and std
+    print("Mean and Std of normalized image:")
+    print("Mean of the image:", mean)
+    print("Std of the image:", std)
 
-# calculate mean and std
-mean, std = img_nor.mean([1, 2]), img_nor.std([1, 2])
 
-# print mean and std
-print("Mean and Std of normalized image:")
-print("Mean of the image:", mean)
-print("Std of the image:", std)
+if __name__ == "__main__":
+    cwd = os.getcwd()
+    data_dir = cwd + '/data'
+
+    print(data_dir)
+
+    employee_data_dir = data_dir + '/Employee/'
+    person_data_dir = data_dir + '/Person/'
+
+    mean_std_single_image()
