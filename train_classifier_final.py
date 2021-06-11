@@ -232,7 +232,7 @@ def train_model():
 
     dataset = datasets.ImageFolder(data_dir, transform=transform)
 
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=20, shuffle=True)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
 
     images, labels = next(iter(dataloader))
 
@@ -256,6 +256,7 @@ def train_model():
     # print(test_set.indices)
 
     # Set batch size
+    # 32 used for (50, 150) resize
     batch_size = 32
 
     # Dataloader for training set
@@ -343,5 +344,5 @@ def train_model():
 
 
 if __name__ == "__main__":
-    torch.cuda.empty_cache()
+    # torch.cuda.empty_cache()
     train_model()
