@@ -265,7 +265,7 @@ def calculate_accuracy():
     # train_set, test_set = torch.utils.data.random_split(dataset, [800, 200], generator=torch.Generator().manual_seed(0))
 
     # Set batch size
-    batch_size = 10
+    batch_size = 32
 
     # Dataloader for training set
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True)
@@ -292,7 +292,7 @@ def calculate_accuracy():
 
             # calculate outputs by running images through the network
             # print images
-            imshow(torchvision.utils.make_grid(images))
+            # imshow(torchvision.utils.make_grid(images))
             print('GroundTruth: ', ' '.join('%5s' % classes[labels[j]] for j in range(batch_size)))
 
             outputs = net(images)
